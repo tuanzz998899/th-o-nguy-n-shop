@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Simple Shop — Cửa hàng demo</title>
+  <meta name="description" content="Website bán hàng đơn giản (single-file)." />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{--bg:#f6f7fb;--card:#ffffff;--accent:#0b74ff;--muted:#6b7280}
+    *{box-sizing:border-box}
+    body{font-family:Inter,system-ui,Segoe UI,Roboto,'Helvetica Neue',Arial; margin:0; background:var(--bg); color:#0f1724}
+    .container{max-width:1100px;margin:32px auto;padding:0 18px}
+    header{display:flex;align-items:center;justify-content:space-between;gap:16px}
+    .brand{display:flex;align-items:center;gap:12px}
+    .logo{width:46px;height:46px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#7cc1ff);display:flex;align-items:center;justify-content:center;color:white;font-weight:700}
+    h1{font-size:18px;margin:0}
+    .search{flex:1;margin-left:20px}
+    .search input{width:100%;padding:10px 12px;border-radius:10px;border:1px solid #e6e9ef;background:white}
+    .actions{display:flex;align-items:center;gap:12px}
+    .btn{background:var(--accent);color:white;padding:9px 12px;border-radius:10px;border:none;cursor:pointer}
+    main{margin-top:22px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:18px}
+    .card{background:var(--card);padding:14px;border-radius:12px;box-shadow:0 4px 16px rgba(16,24,40,0.06)}
+    .thumb{height:160px;border-radius:8px;background:#eef3ff;display:flex;align-items:center;justify-content:center;font-weight:600;color:var(--muted);margin-bottom:12px}
+    .price-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .muted{color:var(--muted);font-size:13px}
+    .product-title{font-weight:600;margin:6px 0}
+    footer{margin-top:28px;text-align:center;color:var(--muted);font-size:13px;padding-bottom:36px}
+
+    /* Cart drawer */
+    .drawer{position:fixed;right:18px;top:80px;width:360px;max-width:calc(100% - 36px);background:var(--card);border-radius:12px;box-shadow:0 10px 40px rgba(2,6,23,0.2);overflow:hidden;transform:translateX(110%);transition:transform .25s ease;z-index:60}
+    .drawer.open{transform:translateX(0)}
+    .drawer .head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #f1f3f8}
+    .drawer .list{max-height:380px;overflow:auto;padding:12px}
+    .cart-item{display:flex;gap:12px;align-items:center;padding:8px;border-radius:8px}
+    .cart-item + .cart-item{margin-top:8px}
+    .cart-thumb{width:64px;height:64px;border-radius:8px;background:#f3f6ff;display:flex;align-items:center;justify-content:center}
+    .qty{display:inline-flex;align-items:center;border-radius:8px;border:1px solid #e6e9ef;overflow:hidden}
+    .qty button{background:transparent;border:0;padding:6px 8px;cursor:pointer}
+
+    /* Checkout form */
+    .checkout{padding:12px;border-top:1px solid #f1f3f8}
+    .field{display:flex;flex-direction:column;margin-bottom:8px}
+    .field input,.field textarea{padding:10px;border-radius:8px;border:1px solid #e6e9ef}
+
+    /* Responsive */
+    @media (max-width:700px){header{flex-direction:column;align-items:flex-start}.search{margin-left:0;margin-top:12px;width:100%}}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand">
+        <div class="logo">SS</div>
+        <div>
+          <h1>Simple Shop</h1>
+          <div class="muted">Cửa hàng demo — single-file</div>
+        </div>
+      </div>
+
+      <div class="search">
+        <input id="searchInput" placeholder="Tìm sản phẩm (ví dụ: tai nghe, áo...)" />
+      </div>
+
+      <div class="actions">
+        <button class="btn" id="viewCartBtn">Giỏ hàng (<span id="cartCount">0</span>)</button>
+      </div>
+    </header>
+
+    <main>
+      <section style="margin-top:18px;display:flex;gap:8px;align-items:center;justify-content:space-between">
+        <div class="muted">Hiển thị <span id="resultCount">0</span> sản phẩm</div>
+        <div>
+          <select id="sortSel" style="padding:8px;border-radius:8px;border:1px solid #e6e9ef">
+            <option value="default">Sắp xếp: Mặc định</option>
+            <option value="price-asc">Giá: thấp → cao</option>
+            <option value="price-desc">Giá: cao → thấp</option>
+          </select>
+        </div>
+      </section>
+
+      <section class="grid" id="productsGrid" aria-live="polite" style="margin-top:12px"></section>
+
+    </main>
+
+    <footer>
+      © Simple Shop — Mẫu demo. Muốn tích hợp thanh toán hoặc backend? Tôi có thể giúp.
+    </footer>
+  </div>
+
+  <!-- Cart drawer -->
+  <aside class="drawer" id="cartDrawer" aria-hidden="true">
+    <div class="head">
+      <div style="font-weight:700">Giỏ hàng</div>
+      <div class="muted" id="drawerTotal">0 đ</div>
+    </div>
+    <div class="list" id="cartList"></div>
+    <div class="checkout">
+      <div class="field"><label class="muted">Họ và tên</label><input id="name" placeholder="Nguyễn Văn A"></div>
+      <div class="field"><label class="muted">Số điện thoại</label><input id="phone" placeholder="0912345678"></div>
+      <div class="field"><label class="muted">Địa chỉ</label><textarea id="address" rows="2" placeholder="Địa chỉ giao hàng"></textarea></div>
+      <div style="display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:8px">
+        <div class="muted">Tổng:</div>
+        <div style="font-weight:700" id="checkoutTotal">0 đ</div>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:8px">
+        <button class="btn" id="placeOrderBtn">Đặt hàng</button>
+        <button style="padding:9px 12px;border-radius:10px;border:1px solid #e6e9ef;background:white" id="closeCart">Đóng</button>
+      </div>
+    </div>
+  </aside>
+
+  <script>
+    // ====== Sample product data (Bạn có thể thay đổi / load từ API) ======
+    const PRODUCTS = [
+      {id:1,title:'Tai nghe không dây Vivid X',price:1290000,desc:'Âm thanh rõ ràng, pin 30h',tag:'tai nghe'},
+      {id:2,title:'Áo thun Cotton Basic',price:199000,desc:'Mềm, thấm hút',tag:'áo'},
+      {id:3,title:'Balo du lịch 20L',price:499000,desc:'Chống nước nhẹ',tag:'balo'},
+      {id:4,title:'Chuột gaming ProGix',price:450000,desc:'Độ nhạy cao, RGB',tag:'phụ kiện'},
+      {id:5,title:'Đồng hồ thông minh FitYou',price:2190000,desc:'Theo dõi sức khỏe',tag:'đồng hồ'},
+      {id:6,title:'Kính mát Unisex',price:159000,desc:'Chống tia UV',tag:'phụ kiện'},
+      {id:7,title:'Áo khoác gió nhẹ',price:399000,desc:'Phù hợp chạy bộ',tag:'áo'},
+      {id:8,title:'Sạc dự phòng 10,000mAh',price:349000,desc:'Sạc nhanh 18W',tag:'phụ kiện'}
+    ];
+
+    // ====== Utilities ======
+    const fmt = n => n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ' đ';
+
+    // ====== Cart logic (localStorage) ======
+    let cart = JSON.parse(localStorage.getItem('ss_cart') || '{}');
+    function saveCart(){ localStorage.setItem('ss_cart', JSON.stringify(cart)); renderCart(); updateCount(); }
+    function addToCart(id, qty=1){ cart[id] = (cart[id] || 0) + qty; saveCart(); }
+    function removeFromCart(id){ delete cart[id]; saveCart(); }
+    function setQty(id, qty){ if(qty<=0){ removeFromCart(id); } else { cart[id]=qty; } saveCart(); }
+
+    // ====== Rendering ======
+    const grid = document.getElementById('productsGrid');
+    const resultCount = document.getElementById('resultCount');
+    const cartCount = document.getElementById('cartCount');
+
+    function renderProducts(list){
+      grid.innerHTML='';
+      list.forEach(p=>{
+        const card = document.createElement('article'); card.className='card';
+        card.innerHTML = `
+          <div class="thumb">${p.title}</div>
+          <div class="product-title">${p.title}</div>
+          <div class="muted">${p.desc}</div>
+          <div class="price-row" style="margin-top:10px">
+            <div style="font-weight:700">${fmt(p.price)}</div>
+            <div style="display:flex;gap:8px">
+              <button class="btn" data-id="${p.id}">Thêm vào giỏ</button>
+            </div>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+      resultCount.textContent = list.length;
+
+      // attach add-to-cart
+      grid.querySelectorAll('button[data-id]').forEach(b=>b.addEventListener('click',e=>{
+        const id = e.currentTarget.getAttribute('data-id'); addToCart(id,1); flashMessage('Đã thêm vào giỏ');
+      }));
+    }
+
+    // ====== Filtering / Search / Sort ======
+    const searchInput = document.getElementById('searchInput');
+    const sortSel = document.getElementById('sortSel');
+    function applyFilters(){
+      let q = searchInput.value.trim().toLowerCase();
+      let list = PRODUCTS.filter(p => p.title.toLowerCase().includes(q) || p.desc.toLowerCase().includes(q) || p.tag.toLowerCase().includes(q));
+      if(sortSel.value === 'price-asc') list.sort((a,b)=>a.price-b.price);
+      if(sortSel.value === 'price-desc') list.sort((a,b)=>b.price-a.price);
+      renderProducts(list);
+    }
+    searchInput.addEventListener('input', applyFilters);
+    sortSel.addEventListener('change', applyFilters);
+
+    // ====== Cart UI ======
+    const drawer = document.getElementById('cartDrawer');
+    const cartList = document.getElementById('cartList');
+    const drawerTotal = document.getElementById('drawerTotal');
+    const checkoutTotal = document.getElementById('checkoutTotal');
+
+    function renderCart(){
+      cartList.innerHTML='';
+      const entries = Object.entries(cart).map(([id,qty])=>({...PRODUCTS.find(p=>p.id==id), qty}));
+      let total = 0;
+      entries.forEach(p=>{
+        if(!p) return;
+        total += p.price * p.qty;
+        const el = document.createElement('div'); el.className='cart-item';
+        el.innerHTML = `
+          <div class="cart-thumb">${p.title}</div>
+          <div style="flex:1">
+            <div style="font-weight:700">${p.title}</div>
+            <div class="muted" style="font-size:13px">${fmt(p.price)} x ${p.qty}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+            <div class="qty">
+              <button data-id="${p.id}" data-op="dec">−</button>
+              <div style="padding:6px 10px">${p.qty}</div>
+              <button data-id="${p.id}" data-op="inc">+</button>
+            </div>
+            <button style="background:transparent;border:0;color:#ef4444;cursor:pointer;font-size:13px" data-id="${p.id}" data-op="remove">Xóa</button>
+          </div>
+        `;
+        cartList.appendChild(el);
+      });
+      drawerTotal.textContent = fmt(total);
+      checkoutTotal.textContent = fmt(total);
+
+      // attach events
+      cartList.querySelectorAll('button').forEach(b=>b.addEventListener('click',e=>{
+        const id = e.currentTarget.getAttribute('data-id');
+        const op = e.currentTarget.getAttribute('data-op');
+        if(op === 'inc') setQty(id, (cart[id]||0)+1);
+        if(op === 'dec') setQty(id, (cart[id]||0)-1);
+        if(op === 'remove') removeFromCart(id);
+      }));
+
+      updateCount();
+    }
+
+    function updateCount(){
+      const totalItems = Object.values(cart).reduce((s,n)=>s+Number(n),0);
+      cartCount.textContent = totalItems;
+    }
+
+    // ====== Drawer controls ======
+    document.getElementById('viewCartBtn').addEventListener('click', ()=>{ drawer.classList.add('open'); drawer.setAttribute('aria-hidden','false'); renderCart(); });
+    document.getElementById('closeCart').addEventListener('click', ()=>{ drawer.classList.remove('open'); drawer.setAttribute('aria-hidden','true'); });
+
+    // ====== Place order (demo only) ======
+    document.getElementById('placeOrderBtn').addEventListener('click', ()=>{
+      const name = document.getElementById('name').value.trim();
+      const phone = document.getElementById('phone').value.trim();
+      const address = document.getElementById('address').value.trim();
+      if(!name || !phone || !address){ flashMessage('Vui lòng điền đầy đủ thông tin giao hàng'); return; }
+      const order = {id:Date.now(), customer:{name,phone,address}, items:cart, total:Object.entries(cart).reduce((s,[id,q])=>s + q * (PRODUCTS.find(p=>p.id==id)?.price||0),0)};
+      // --- In real app: gửi order lên server. Ở đây: chỉ giả lập ---
+      console.log('Order created', order);
+      // clear cart
+      cart = {}; saveCart(); drawer.classList.remove('open'); flashMessage('Đặt hàng thành công — xem console để xem chi tiết (demo)');
+    });
+
+    // ====== Small utility: temporary toast ======
+    function flashMessage(txt){
+      const t = document.createElement('div');
+      t.textContent = txt; t.style.position='fixed'; t.style.right='18px'; t.style.bottom='18px'; t.style.padding='10px 14px'; t.style.background='#0b74ff'; t.style.color='white'; t.style.borderRadius='8px'; t.style.boxShadow='0 6px 20px rgba(11,116,255,0.2)'; t.style.zIndex=100; document.body.appendChild(t);
+      setTimeout(()=>{ t.style.opacity='0'; t.style.transition='opacity .3s'; setTimeout(()=>t.remove(),350); },1800);
+    }
+
+    // ====== Init ======
+    renderProducts(PRODUCTS);
+    renderCart();
+    updateCount();
+    applyFilters();
+
+    // keyboard: press 'c' to toggle cart (dev)
+    window.addEventListener('keydown', e=>{ if(e.key==='c') drawer.classList.toggle('open'); });
+  </script>
+</body>
+</html>
